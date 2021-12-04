@@ -1,6 +1,8 @@
 from copy import deepcopy
+from decimal import Decimal
 
 import pytest
+from django.db import connection
 from django.test.testcases import TestCase
 
 from djstripe.models import Coupon
@@ -99,6 +101,26 @@ class HumanReadableCouponTest(TestCase):
         )
         self.assertEqual(coupon.human_readable, "10% off forever")
         self.assertEqual(str(coupon), coupon.human_readable)
+
+    def test_decimal_percent_off_coupon(self):
+        fake_coupon = deepcopy(FAKE_COUPON)
+        fake_coupon["percent_off"] = 25.0
+
+        coupon = Coupon.sync_from_stripe_data(fake_coupon)
+        field_data = coupon.percent_off
+        field = Coupon._meta.get_field("percent_off")
+
+        self.assertTrue(isinstance(field_data, Decimal))
+        self.assertEqual(
+            field_data,
+            field.get_prep_value(
+                connection.ops.adapt_decimalfield_value(
+                    field.to_python(fake_coupon["percent_off"]),
+                    field.max_digits,
+                    field.decimal_places,
+                )
+            ),
+        )
 
 
 class TestCouponStr(TestCase):

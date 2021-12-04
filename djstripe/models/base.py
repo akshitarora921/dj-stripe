@@ -359,6 +359,13 @@ class StripeModel(StripeBaseModel):
                     #  sub-classes CharField, is that intentional?
                     field_data = ""
 
+                # so that DecimalField max_digits and decimal_places are
+                # respected in the returned instance
+                if isinstance(field, models.DecimalField) and field_data:
+                    field_data = field.to_python(
+                        f"{field_data:0.{field.decimal_places}f}"
+                    )
+
             result[field.name] = field_data
 
         # For all objects other than the account object itself, get the API key
