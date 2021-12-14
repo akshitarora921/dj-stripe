@@ -25,6 +25,32 @@ def _get_version():
     return __version__
 
 
+def get_remote_ip(_request):
+    """Given the HTTPRequest object return the IP Address of the client
+
+    :param _request: client request
+    :type _request: HTTPRequest
+
+    :Returns: the client ip address
+    """
+
+    # HTTP_X_FORWARDED_FOR is relevant for django running behind a proxy
+    x_forwarded_for = _request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0]
+    else:
+        ip = _request.META.get("REMOTE_ADDR")
+
+    if not ip:
+        warnings.warn(
+            "Could not determine remote IP (missing REMOTE_ADDR). "
+            "This is likely an issue with your wsgi/server setup."
+        )
+        ip = "0.0.0.0"
+
+    return ip
+
+
 class WebhookEventTrigger(models.Model):
     """
     An instance of a request that reached the server endpoint for Stripe webhooks.
@@ -96,13 +122,7 @@ class WebhookEventTrigger(models.Model):
         except Exception:
             body = "(error decoding body)"
 
-        ip = request.META.get("REMOTE_ADDR")
-        if not ip:
-            warnings.warn(
-                "Could not determine remote IP (missing REMOTE_ADDR). "
-                "This is likely an issue with your wsgi/server setup."
-            )
-            ip = "0.0.0.0"
+        ip = get_remote_ip(request)
 
         try:
             data = json.loads(body)
